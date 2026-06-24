@@ -371,9 +371,42 @@ tr.just-moved{background:linear-gradient(90deg,#fff8e1,#fffde7)!important;outlin
     </div>
   </div>
 
-  <!-- Step 4: 데이터 관리 -->
+  <!-- Step 4: 발주일 공지 설정 -->
+  <div class="setup-step" style="border-left-color:var(--orange)">
+    <div class="flex mb8"><span class="step-num" style="background:var(--orange)">4</span><span class="step-title">발주일 공지 설정</span></div>
+    <p class="text-sm text-gray mb8">접속 시 공지 팝업과 발주 입력 날짜를 자동 설정합니다. 미리 입력해두면 병동에서 잘못된 날짜로 발주하는 실수를 방지할 수 있습니다.</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>📅 이번 발주일 *</label>
+        <input type="date" id="noticeSetOrderDate" style="font-size:14px;font-weight:700">
+      </div>
+      <div class="form-group">
+        <label>📅 다음 발주일</label>
+        <input type="date" id="noticeSetNextDate">
+      </div>
+    </div>
+    <div class="form-group mb8" style="max-width:480px">
+      <label>📢 추가 공지 메시지 (선택)</label>
+      <textarea id="noticeSetMsg" rows="3" style="border:1.5px solid var(--gray2);border-radius:6px;padding:8px 10px;font-family:inherit;font-size:12px;resize:vertical;width:100%" placeholder="예) 수량은 2주치 기준으로 입력해 주세요."></textarea>
+    </div>
+    <div class="flex mb8" style="gap:16px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+        <input type="checkbox" id="noticeLockDate"> 발주일 자동 고정 (병동에서 날짜 변경 불가)
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+        <input type="checkbox" id="noticeEnabled" checked> 접속 시 공지 팝업 표시
+      </label>
+    </div>
+    <div class="flex">
+      <button class="btn btn-p" onclick="saveNoticeSettings()">💾 공지 저장</button>
+      <button class="btn btn-g btn-sm" onclick="previewNotice()">👁 미리보기</button>
+      <button class="btn btn-r btn-sm" onclick="clearNoticeSettings()">✕ 공지 해제</button>
+    </div>
+  </div>
+
+  <!-- Step 5: 데이터 관리 -->
   <div class="setup-step" style="border-left-color:var(--red)">
-    <div class="flex mb8"><span class="step-num" style="background:var(--red)">4</span><span class="step-title">데이터 관리</span></div>
+    <div class="flex mb8"><span class="step-num" style="background:var(--red)">5</span><span class="step-title">데이터 관리</span></div>
     <div class="flex">
       <button class="btn btn-g btn-sm" onclick="exportAllData()">💾 전체 데이터 백업</button>
       <button class="btn btn-g btn-sm" onclick="document.getElementById('importDataFile').click()">📂 백업 데이터 복원</button>
@@ -448,6 +481,30 @@ tr.just-moved{background:linear-gradient(90deg,#fff8e1,#fffde7)!important;outlin
     <div class="flex mt8 hidden" id="prodImportConfirm">
       <button class="btn btn-p" onclick="confirmProdImport()">✓ 가져오기 실행</button>
       <button class="btn btn-g" onclick="closeModal('modalImport')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 발주일 공지 팝업 -->
+<div class="modal-bg" id="modalNotice" style="z-index:3000">
+  <div class="modal" style="width:500px;text-align:center;padding:0;overflow:hidden;border-radius:16px">
+    <!-- 상단 배너 -->
+    <div style="background:linear-gradient(135deg,var(--navy2),var(--navy3));padding:28px 28px 20px;color:#fff">
+      <div style="font-size:48px;margin-bottom:8px">📋</div>
+      <div id="noticeTitle" style="font-size:16px;font-weight:600;opacity:.85;margin-bottom:4px"></div>
+      <div id="noticeOrderDate" style="font-size:30px;font-weight:800;color:var(--teal2);letter-spacing:.5px;line-height:1.2"></div>
+    </div>
+    <!-- 본문 -->
+    <div style="padding:20px 28px 24px">
+      <div id="noticeNextDate" style="font-size:13px;color:var(--gray4);background:var(--gray0);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-weight:500"></div>
+      <div id="noticeMsg" style="font-size:13px;color:var(--navy2);background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;margin-bottom:16px;white-space:pre-wrap;text-align:left;display:none"></div>
+      <div style="background:var(--teal-bg);border:1.5px solid var(--teal);border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--navy2)">
+        ⚠️ 부서별 주문 입력 시 반드시 위 날짜로 입력하세요
+      </div>
+      <button class="btn btn-p" style="width:100%;font-size:15px;padding:12px;border-radius:8px" onclick="closeNotice()">✓ 확인했습니다</button>
+      <label style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;font-size:12px;color:var(--gray4);cursor:pointer">
+        <input type="checkbox" id="noticeDontShow" style="cursor:pointer"> 오늘 하루 다시 보지 않기
+      </label>
     </div>
   </div>
 </div>
@@ -799,6 +856,125 @@ async function fbSaveDeptOrder(date, keys){
 
 async function fbDeleteMainOrder(date){try{await db.collection('mainOrders').doc(date).delete();}catch(e){console.error(e);}}
 async function fbDeleteDeptOrder(date){try{await db.collection('deptOrders').doc(date).delete();}catch(e){console.error(e);}}
+
+// ============================================================
+// 발주일 공지 시스템
+// ============================================================
+function saveNoticeSettings(){
+  const orderDate=document.getElementById('noticeSetOrderDate').value;
+  if(!orderDate){toast('이번 발주일을 입력하세요','err');return;}
+  if(!AD.notice) AD.notice={};
+  AD.notice={
+    enabled:document.getElementById('noticeEnabled').checked,
+    lockDate:document.getElementById('noticeLockDate').checked,
+    orderDate,
+    nextOrderDate:document.getElementById('noticeSetNextDate').value||'',
+    message:document.getElementById('noticeSetMsg').value||''
+  };
+  saveData();
+  // Firebase에도 notice 필드 즉시 반영 (fbSaveConfig 포함)
+  applyNoticeDateLock(); // 저장 즉시 잠금 적용
+  toast(`✓ 발주일 공지 저장 완료 — ${orderDate}`,'ok');
+}
+
+function loadNoticeSettingsUI(){
+  const n=AD.notice||{};
+  if(document.getElementById('noticeSetOrderDate')){
+    document.getElementById('noticeSetOrderDate').value=n.orderDate||'';
+    document.getElementById('noticeSetNextDate').value=n.nextOrderDate||'';
+    document.getElementById('noticeSetMsg').value=n.message||'';
+    document.getElementById('noticeLockDate').checked=!!n.lockDate;
+    document.getElementById('noticeEnabled').checked=n.enabled!==false;
+  }
+}
+
+function clearNoticeSettings(){
+  if(!confirm('공지 설정을 해제하시겠습니까?'))return;
+  AD.notice={enabled:false,lockDate:false,orderDate:'',nextOrderDate:'',message:''};
+  saveData();
+  loadNoticeSettingsUI();
+  toast('공지 해제 완료','ok');
+}
+
+function previewNotice(){showNoticePopup(true);}
+
+function showNoticePopup(force=false){
+  const n=AD.notice||{};
+  if(!n.orderDate) return; // 설정된 발주일 없으면 표시 안 함
+  if(!force){
+    if(!n.enabled) return;
+    // 오늘 하루 다시 보지 않기 체크 여부 확인
+    const skipKey='noticeDone_'+n.orderDate;
+    if(localStorage.getItem(skipKey)==='1') return;
+  }
+  const modal=document.getElementById('modalNotice');
+  document.getElementById('noticeTitle').textContent='🔔 발주일 안내';
+  const od=n.orderDate; const [oy,om,od2]=od.split('-');
+  document.getElementById('noticeOrderDate').textContent=`${oy}년 ${+om}월 ${+od2}일 (${getDayName(od)})`;
+  const nextEl=document.getElementById('noticeNextDate');
+  if(n.nextOrderDate){const nd=n.nextOrderDate;const[ny,nm,nd2]=nd.split('-');nextEl.textContent=`다음 발주일: ${ny}년 ${+nm}월 ${+nd2}일 (${getDayName(nd)})`;} else {nextEl.textContent='';}
+  nextEl.style.display=n.nextOrderDate?'block':'none';
+  const msgEl=document.getElementById('noticeMsg');
+  msgEl.textContent=n.message||'';
+  msgEl.style.display=n.message?'block':'none';
+  modal.classList.add('show');
+}
+
+function closeNotice(){
+  const n=AD.notice||{};
+  if(document.getElementById('noticeDontShow').checked&&n.orderDate){
+    localStorage.setItem('noticeDone_'+n.orderDate,'1');
+  }
+  document.getElementById('modalNotice').classList.remove('show');
+}
+
+function getDayName(dateStr){
+  if(!dateStr)return'';
+  const days=['일','월','화','수','목','금','토'];
+  return days[new Date(dateStr).getDay()]+'요일';
+}
+
+function applyNoticeDateLock(){
+  const n=AD.notice||{};
+
+  // 발주 입력 날짜
+  const mainInput=document.getElementById('mainDate');
+  if(mainInput){
+    if(n.orderDate&&n.lockDate){
+      mainInput.value=n.orderDate;
+      mainInput.readOnly=true;
+      mainInput.style.background='#f0f0f0';
+      mainInput.style.cursor='not-allowed';
+      mainInput.title='관리자 설정 발주일: '+n.orderDate+' (변경 불가)';
+    } else {
+      mainInput.readOnly=false;
+      mainInput.style.background='';
+      mainInput.style.cursor='';
+      mainInput.title='';
+      if(n.orderDate&&!mainInput.value) mainInput.value=n.orderDate;
+    }
+  }
+
+  // 부서별 주문 날짜 — 동일하게 잠금 적용
+  const deptInput=document.getElementById('deptDate');
+  if(deptInput){
+    if(n.orderDate&&n.lockDate){
+      deptInput.value=n.orderDate;
+      deptInput.readOnly=true;
+      deptInput.style.background='#f0f0f0';
+      deptInput.style.cursor='not-allowed';
+      deptInput.title='관리자 설정 발주일: '+n.orderDate+' (변경 불가)';
+    } else {
+      deptInput.readOnly=false;
+      deptInput.style.background='';
+      deptInput.style.cursor='';
+      deptInput.title='';
+      if(n.orderDate&&!deptInput.value) deptInput.value=n.orderDate;
+    }
+    // 날짜 변경 시 renderDeptPage 재실행
+    renderDeptPage();
+  }
+}
 
 // 하위 호환 — config 저장 트리거
 function saveData(){fbSaveConfig();}
@@ -2118,8 +2294,8 @@ function goPage(page, btn){
   if(page==='history'){renderHistList();}
   if(page==='download'){refreshDLDates();renderDLCards();}
   if(page==='product'){renderVendorList();renderProductList();}
-  if(page==='setup'){renderDeptTags();renderSetupTable();}
-  if(page==='dept'){renderDeptPage();}
+  if(page==='setup'){renderDeptTags();renderSetupTable();loadNoticeSettingsUI();}
+  if(page==='dept'){applyNoticeDateLock();renderDeptPage();}
 }
 
 // ============================================================
@@ -2177,6 +2353,10 @@ function initApp(buildTables=true){
   document.getElementById('mainDate').onchange=function(){
     autoLoadMainOrder(this.value);
   };
+  // 공지 팝업 표시 + 날짜 잠금 적용
+  applyNoticeDateLock();
+  setTimeout(()=>showNoticePopup(),600); // 앱 렌더 후 팝업
+
   document.getElementById('deptDate').onchange=function(){
     renderDeptPage();
     const dept=document.getElementById('deptSel').value;
@@ -2249,6 +2429,7 @@ function loadFirebaseData(){
       });
       localStorage.setItem(STORE_KEY,JSON.stringify(AD));
       setSyncStatus('ok');
+      applyNoticeDateLock(); // Firebase 로드 후 날짜 잠금 재적용
       // Firebase 데이터로 화면 갱신
       const activePage=document.querySelector('.pg.on');
       if(activePage&&activePage.id==='pg-main'){
