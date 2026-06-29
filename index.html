@@ -1340,12 +1340,38 @@ function saveDeptOrder(){
   AD.deptOrders[date][dept+'_savedAt']=new Date().toISOString();
   fbSaveDeptOrder(date,[dept,dept+'_savedAt']); // 본인 부서 필드만 merge 저장 → 타부서 데이터 보존
   document.getElementById('deptSavedAt').textContent=`저장: ${new Date().toLocaleTimeString('ko-KR')}`;
-  toast(`✓ ${dept} ${date} 주문 저장 완료`,'ok');
-  // 발주 입력 탭이 같은 날짜를 보고 있으면 자동 반영
+
+  // ★ 이미 저장된 메인 발주가 있으면 자동으로 업데이트
+  autoUpdateMainOrderFromDept(date, dept);
+
+  toast(`✓ ${dept} ${date} 주문 저장 완료 — 발주 내역 자동 업데이트`,'ok');
+
+  // 발주 입력 탭이 현재 열려 있으면 화면도 갱신
   const mainDate=document.getElementById('mainDate').value;
   if(mainDate===date && document.getElementById('pg-main').classList.contains('on')){
     autoLoadMainOrder(date);
   }
+}
+
+// 부서 주문 저장 시 메인 발주도 자동 업데이트 (발주 내역 실시간 반영)
+function autoUpdateMainOrderFromDept(date, changedDept){
+  if(!AD.mainOrders?.[date]) return; // 메인 발주가 아직 없으면 패스
+
+  // 현재 메인 발주 데이터 복사
+  const mData = JSON.parse(JSON.stringify(AD.mainOrders[date].data||{}));
+
+  // 변경된 부서의 최신 데이터를 메인 발주에 반영
+  const dd = AD.deptOrders[date][changedDept]||{};
+  getProducts().forEach(p=>{
+    if(!mData[p.id]) mData[p.id]={qty:Object.fromEntries(getDepts().map(d=>[d,0])),stock:Object.fromEntries(getDepts().map(d=>[d,0]))};
+    mData[p.id].qty[changedDept]  = dd[p.id]?.req   || 0;
+    mData[p.id].stock[changedDept]= dd[p.id]?.stock || 0;
+  });
+
+  // 메인 발주 업데이트 + Firebase 저장
+  AD.mainOrders[date]={savedAt:new Date().toISOString(), data:mData};
+  fbSaveMainOrder(date);
+  localStorage.setItem(STORE_KEY, JSON.stringify(AD));
 }
 
 function loadDeptOrder(dept, date){
