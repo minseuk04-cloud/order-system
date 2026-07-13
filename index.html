@@ -971,8 +971,9 @@ function applyNoticeDateLock(){
       deptInput.title='';
       if(n.orderDate&&!deptInput.value) deptInput.value=n.orderDate;
     }
-    // 날짜 변경 시 renderDeptPage 재실행
-    renderDeptPage();
+    // ★ 수정: renderDeptPage 자동 호출 제거
+    // (자동 호출 시 입력 중인 데이터가 리셋되는 부작용 방지)
+    // 날짜가 실제로 변경된 경우에만 renderDeptPage는 deptDate onchange에서 처리
   }
 }
 
@@ -1108,6 +1109,9 @@ function saveMainOrder(){
 
 // 발주 입력 → 부서별 주문 역방향 동기화
 function syncMainToDeptOrders(date){
+  // ⚠️ 메인→부서 방향 동기화는 로컬 AD 업데이트만 수행
+  // Firebase 저장은 하지 않음 → 부서별 주문 데이터 보호
+  // (부서별 주문은 saveDeptOrder에서만 Firebase에 저장됨)
   const depts=getDepts();
   if(!AD.deptOrders) AD.deptOrders={};
   if(!AD.deptOrders[date]) AD.deptOrders[date]={};
@@ -1119,19 +1123,17 @@ function syncMainToDeptOrders(date){
       if(!d) return;
       const req=+d.qty[dept]||0;
       const stock=+d.stock[dept]||0;
-      // 기존 부서 주문의 비고(note)는 유지하면서 재고/청구만 업데이트
+      // 기존 부서 주문의 비고(note)는 유지
       const existNote=AD.deptOrders[date][dept][p.id]?.note||'';
+      // ★ 핵심 수정: 메인에 값이 있을 때만 업데이트
+      //    메인이 0이어도 기존 부서 데이터를 0으로 덮어쓰지 않음
       if(req>0||stock>0){
         AD.deptOrders[date][dept][p.id]={req,stock,note:existNote};
-      } else if(AD.deptOrders[date][dept][p.id]){
-        // 발주 입력에서 0으로 지운 경우 부서 주문도 0으로
-        AD.deptOrders[date][dept][p.id]={req:0,stock:0,note:existNote};
       }
+      // else: 메인이 0 → 부서 데이터 보존 (덮어쓰지 않음)
     });
-    AD.deptOrders[date][dept+'_savedAt']=new Date().toISOString();
   });
-
-  fbSaveDeptOrder(date);
+  // ★ Firebase 저장 없음 — 부서 데이터는 부서가 직접 저장한 것만 유효
   localStorage.setItem(STORE_KEY,JSON.stringify(AD));
 }
 
@@ -2321,7 +2323,10 @@ function goPage(page, btn){
   if(page==='download'){refreshDLDates();renderDLCards();}
   if(page==='product'){renderVendorList();renderProductList();}
   if(page==='setup'){renderDeptTags();renderSetupTable();loadNoticeSettingsUI();}
-  if(page==='dept'){applyNoticeDateLock();renderDeptPage();}
+  if(page==='dept'){
+    applyNoticeDateLock(); // 날짜 잠금 먼저
+    renderDeptPage();      // 그 후 데이터 로드
+  }
 }
 
 // ============================================================
@@ -2455,7 +2460,7 @@ function loadFirebaseData(){
       });
       localStorage.setItem(STORE_KEY,JSON.stringify(AD));
       setSyncStatus('ok');
-      applyNoticeDateLock(); // Firebase 로드 후 날짜 잠금 재적용
+      // ★ 수정: Firebase 로드 후 applyNoticeDateLock 제거 (입력 중 데이터 보호)
       // Firebase 데이터로 화면 갱신
       const activePage=document.querySelector('.pg.on');
       if(activePage&&activePage.id==='pg-main'){
