@@ -1109,9 +1109,10 @@ function saveMainOrder(){
 
 // 발주 입력 → 부서별 주문 역방향 동기화
 function syncMainToDeptOrders(date){
-  // ⚠️ 메인→부서 방향 동기화는 로컬 AD 업데이트만 수행
-  // Firebase 저장은 하지 않음 → 부서별 주문 데이터 보호
-  // (부서별 주문은 saveDeptOrder에서만 Firebase에 저장됨)
+  // 로컬 AD를 업데이트한 뒤 Firebase(deptOrders)에도 반영합니다.
+  // (이전 버전은 로컬/localStorage만 갱신하고 Firebase에는 저장하지 않아,
+  //  새로고침하거나 다른 기기/브라우저에서 부서별 주문 페이지를 열면
+  //  방금 입력한 전체 발주 내용이 보이지 않는 문제가 있었습니다.)
   const depts=getDepts();
   if(!AD.deptOrders) AD.deptOrders={};
   if(!AD.deptOrders[date]) AD.deptOrders[date]={};
@@ -1133,8 +1134,9 @@ function syncMainToDeptOrders(date){
       // else: 메인이 0 → 부서 데이터 보존 (덮어쓰지 않음)
     });
   });
-  // ★ Firebase 저장 없음 — 부서 데이터는 부서가 직접 저장한 것만 유효
   localStorage.setItem(STORE_KEY,JSON.stringify(AD));
+  // ★ Firebase에도 반영 (merge:true 이므로 부서가 직접 입력/저장한 다른 값은 보존됨)
+  fbSaveDeptOrder(date, depts);
 }
 
 function loadMainOrder(date){
